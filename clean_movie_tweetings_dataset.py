@@ -1,11 +1,15 @@
 import sys
 
 def main():
-    input_file = sys.argv[1]
-    output_file = sys.argv[2]
-    file_ptr = open(output_file,"w")
+    movies_input_file = sys.argv[1]
+    ratings_input_file = sys.argv[2]
+    movies_output_file = sys.argv[3]
+    ratings_output_file = sys.argv[4]
 
-    with open(input_file,"r") as f:
+    file_ptr = open(movies_output_file,"w")
+
+    cleaned_movie_ids = []
+    with open(movies_input_file,"r") as f:
         line = f.readline()
         sentences = []
         while line:
@@ -13,9 +17,8 @@ def main():
             movie_name = line.split("::")[1].split(" (")[0].replace(")","")
             release_year = line.split("::")[1].split(" (")[1].split(")")[0]
             genre = line.split("::")[2].strip().split("|")
-            print(line)
-            print(movie_id,movie_name,release_year,genre)
             if int(release_year) >= 2010:
+                cleaned_movie_ids.append(movie_id)
                 file_ptr.write("%s\t%s\t%s\t" % (movie_id,movie_name,release_year))
                 file_ptr.flush()
                 for ind_genre in genre:
@@ -26,5 +29,24 @@ def main():
             line = f.readline()
     file_ptr.close()
 
+    file_ptr = open(movies_output_file,"r")
+    cleaned_movies_list = file_ptr.readlines()
+    file_ptr.close()
+    file_ptr = open(ratings_output_file,"w")
+
+    with open(ratings_input_file,"r") as f:
+        line = f.readline()
+        while line:
+            movie_id = line.split("::")[1]
+            user_id = line.split("::")[0]
+            rating = line.split("::")[2]
+            timestamp = line.split("::")[3]
+            print(movie_id)
+            if(movie_id in cleaned_movie_ids):
+                file_ptr.write("%s\t%s\t%s\t%s" % (movie_id,user_id,rating,timestamp))
+                file_ptr.flush()
+            line = f.readline()
+
+    file_ptr.close()
 if __name__ == '__main__':
     main()
