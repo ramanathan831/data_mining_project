@@ -1,3 +1,4 @@
+#python clean_movie_tweetings_dataset.py datasets/movies.txt datasets/ratings.txt datasets/movies_cleaned.txt datasets/ratings_cleaned.txt
 import sys
 
 def main():
@@ -41,7 +42,6 @@ def main():
             user_id = line.split("::")[0]
             rating = line.split("::")[2]
             timestamp = line.split("::")[3]
-            print(movie_id)
             if(movie_id in cleaned_movie_ids):
                 file_ptr.write("%s\t%s\t%s\t%s" % (movie_id,user_id,rating,timestamp))
                 file_ptr.flush()
