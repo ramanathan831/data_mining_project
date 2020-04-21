@@ -1,11 +1,54 @@
 import urllib.request, urllib.parse, urllib.error,urllib.request,urllib.error,urllib.parse,json,re,datetime,sys,http.cookiejar
 import Tweet
+import nltk
 from pyquery import PyQuery
+import string
+from tweepy import Stream
+from tweepy import OAuthHandler
+from tweepy.streaming import StreamListener
+import json
+import pandas as pd
+import csv
+import re #regular expression
+from textblob import TextBlob
+import string
+import preprocessor as p
+
+
+def clean(data):
+	stop_words = set(stopwords.words('english'))
+	word_tokens = word_tokenize(data)
+
+	# after tweepy preprocessing the colon left remain after removing mentions
+	# or RT sign in the beginning of the data
+	data = re.sub(r':', '', data)
+	data = re.sub(r'‚Ä¶', '', data)
+	# replace consecutive non-ASCII characters with a space
+	data = re.sub(r'[^\x00-\x7F]+', ' ', data)
+
+	# remove emojis from data
+	data = emoji_pattern.sub(r'', data)
+
+	# filter using NLTK library append it to a string
+	filtered_data = [w for w in word_tokens if not w in stop_words]
+	filtered_data = []
+
+	# looping through conditions
+	for w in word_tokens:
+		# check tokens against stop words , emoticons and punctuations
+		if w not in stop_words and w not in emoticons and w not in string.punctuation:
+			filtered_data.append(w)
+	#return ' '.join(filtered_data)
+	return filtered_data
+
 
 class TweetManager:
 
+
+
 	def __init__(self):
 		pass
+
 
 	@staticmethod
 	def getTweets(tweetCriteria, receiveBuffer=None, bufferLength=100, proxy=None):
@@ -69,8 +112,10 @@ class TweetManager:
 				tweet.urls = ",".join(urls)
 				tweet.author_id = user_id
 				if(tweet.language == "en"):
-					results.append(tweet)
-					resultsAux.append(tweet)
+					# filtered_tweet=clean(tweet.text)
+					filtered_tweet=p.clean(tweet)
+					results.append(filtered_tweet)
+					resultsAux.append(filtered_tweet)
 
 				if receiveBuffer and len(resultsAux) >= bufferLength:
 					receiveBuffer(resultsAux)
