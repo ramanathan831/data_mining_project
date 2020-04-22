@@ -1,3 +1,4 @@
+import pandas as pd
 from pyspark import SparkContext, join
 import numpy as np
 # The following features are present in the dataset
@@ -12,18 +13,7 @@ sc.setLogLevel("ERROR")
 
 
 def cosineSimilarityBetweenMovies():
-    METADATA_COLUMNS_MAP = {
-        'TMDB_ID': 'TMDB_ID',
-        'Movie_Name': 'Movie_Name',
-        'Adult': 'Adult',
-        'Genre_ID': 'Genre_ID',
-        'IMDB_ID': 'IMDB_ID',
-        'Language': 'Language',
-        'Production_Country_Names': 'Production_Country_Names',
-        'Director': 'Director',
-        'Assistant_Director': 'Assistant_Director',
-        'Cast': 'Cast'
-    }
+
 
     def combineFullName(name):
         return name.lower().replace(" ", "")
@@ -43,15 +33,9 @@ def cosineSimilarityBetweenMovies():
 
     def commaSeperatedToList(input):
         # :-1 to trim the last comma
-        list = input.split(',')
+        list = input[:-1].split(',')
         return list
 
-    IMDB_ID = 'imdbId'
-    TMDB_ID = 'tmdbId'
-    MOVIE = 'movie'
-    GENRE_ID = 'genreIDList'
-    CAST = 'castList'
-    ADULT = 'isAdult'
 
     # tmdb, imdb, name, genreid, adult, director, cast, asstnt direc, lang, prod_country
     def parse(x):
@@ -63,15 +47,17 @@ def cosineSimilarityBetweenMovies():
         #         getListCombineNames(y[25]),
         #         y[7], y[12])}
         return {TMDB_ID: y[0],
-                IMDB_ID: y[5],
+                IMDB_ID: y[5].replace("tt", ""),
                 MOVIE: y[6],
                 GENRE_ID: commaSeperatedToList(y[3]),  # Genre Feature Set
                 ADULT: y[1],  # Is Adult Boolean
                 CAST: getListCombineNames(y[20]),  # Cast Feature Set
                 }
 
-    data = sc.textFile(MOVIE_METADATA_FILE)
-    rdd_data = data.map(lambda x: parse(x))
+    data = sc.textFile(CONSTANTS.MOVIE_METADATA_FILE)
+    rdd_data = data\
+        .filter(lambda x: x[0]!=CONSTANTS.METADATA_COLUMNS_MAP.get(TMDB_ID))\
+        .map(lambda x: parse(x))
     movie_metadata = rdd_data.take(10)
     print(movie_metadata)
 
@@ -103,9 +89,12 @@ def cosineSimilarityBetweenMovies():
 
         return lorg
 
+    TITLE = 'TITLE'
+    TOKENS = 'TOKENS'
+
     itemProfile = rdd_data.map(lambda features: generateItemProfile(features))
     itemFeatures = itemProfile.map(
-        lambda itemProf: {'TITLE': itemProf[MOVIE], 'TOKENS': (' '.join(itemProf["TOKENS"])).strip(' ')})
+        lambda itemProf: {TITLE: itemProf[MOVIE], IMDB_ID: itemProf[IMDB_ID], TOKENS: (' '.join(itemProf[TOKENS])).strip(' ')})
 
     npItemFeatures = np.array(itemFeatures)
 
@@ -114,18 +103,25 @@ def cosineSimilarityBetweenMovies():
 
     # instantiating and generating the count matrix
     count = CountVectorizer()
-    count_matrix = count.fit_transform(itemFeatures.map(lambda x: x['TOKENS']).collect())
+    count_matrix = count.fit_transform(itemFeatures.map(lambda x: x[TOKENS]).collect())
 
-    np.array(itemFeatures.map(lambda x: x['TITLE']).collect())
+    movieTitles = np.array(itemFeatures.map(lambda x: x[IMDB_ID]).collect())
+    print(movieTitles)
 
     # generating the cosine similarity matrix
     cosine_sim = np.array(cosine_similarity(count_matrix, count_matrix))
 
-    print(cosine_sim)
-    return cosine_sim
+    indexing = pd.Series(itemFeatures.map(lambda x: x[TITLE]).collect())
+    print(indexing)
+    # print(cosine_sim)
+    return cosine_sim, indexing
 
 
-def findUserRecommendation():
+
+def recommendUser(userId, movieId):
+    pass
+
+def findUserRecommendation(cosine_sim, indexing):
     def parse_MOVIEID_MOVIENAME_FILE(x):
         line = x.split("\t")
         movieId = line[0]
@@ -139,28 +135,13 @@ def findUserRecommendation():
         rating = line[2]
         return (movieId, [userId, rating])
 
-    data1 = sc.textFile(CONSTANTS.MOVIEID_MOVIENAME_FILE)
-    rdd_data1 = data1.map(lambda x: parse_MOVIEID_MOVIENAME_FILE(x))
-    print(rdd_data1.take(10))
+    recommendUser(userId=4, movieId=9)
 
-    data2 = sc.textFile(CONSTANTS.MOVIEID_USERID_RATINGS_FILE)
-    rdd_data2 = data2.map(lambda x: parse_MOVIEID_USERID_RATINGS_FILE(x))
-    print(rdd_data2.take(10))
-
-    joined = rdd_data2.join(rdd_data1)
-    # movieId, movieName, userId
-    # final = joined.mapValues(lambda lineTuple: lineTuple)
-    print(joined.take(10))
-
-    def parseTmdb(line):
-        # moviename, tmdbid, imdbid
-        movieName = line[6]
-        tmdbid = line[0]
-        imdbid = line[5]
-        return ( movieName, [tmdbid, imdbid])
-
-    data3 = sc.textFile(CONSTANTS.TMDB_MOVIE_METADATA_CLEANED)
-    rdd_data3 = data3.map(lambda x: parseTmdb(x))
+    result = []
+    # Getting the id of the movie for which the user want recommendation
+    ind = indices[movie].iloc[0]
+    # Getting all the similar cosine score for that movie
+    sim_scores = list(enumerate(cosine_sim[ind]))
 
     def modifyJoin(x):
         mid = x[0]
@@ -181,7 +162,34 @@ def findUserRecommendation():
     all = joined2.groupByKey().map(lambda x : (x[0], list(x[1])))
     print(all.take(10))
 
+    # Say we find the user movieid rating matrix
+
 
 if __name__ == '__main__':
-    # cosine_sim = cosineSimilarityBetweenMovies()
-    findUserRecommendation()
+    cosine_sim, indexing = cosineSimilarityBetweenMovies()
+    findUserRecommendation(cosine_sim, indexing)
+
+
+
+  # data1 = sc.textFile(CONSTANTS.MOVIEID_MOVIENAME_FILE)
+    # rdd_data1 = data1.map(lambda x: parse_MOVIEID_MOVIENAME_FILE(x))
+    # print(rdd_data1.take(10))
+    #
+    # data2 = sc.textFile(CONSTANTS.MOVIEID_USERID_RATINGS_FILE)
+    # rdd_data2 = data2.map(lambda x: parse_MOVIEID_USERID_RATINGS_FILE(x))
+    # print(rdd_data2.take(10))
+    #
+    # joined = rdd_data2.join(rdd_data1)
+    # # movieId, movieName, userId
+    # # final = joined.mapValues(lambda lineTuple: lineTuple)
+    # print(joined.take(10))
+    #
+    # def parseTmdb(line):
+    #     # moviename, tmdbid, imdbid
+    #     movieName = line[6]
+    #     tmdbid = line[0]
+    #     imdbid = line[5]
+    #     return ( movieName, [tmdbid, imdbid])
+    #
+    # data3 = sc.textFile(CONSTANTS.TMDB_MOVIE_METADATA_CLEANED)
+    # rdd_data3 = data3.map(lambda x: parseTmdb(x))
