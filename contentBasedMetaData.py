@@ -6,13 +6,9 @@ import numpy as np
 
 # TMDB_ID	Adult	Budget	Genre_ID	Genre_Name	            IMDB_ID	    Movie_Name	Language	Synopsis	Popularity	Production_Company_IDs	Production_Company_Names	Production_Country_Names	Release_Date	Running_Time	Vote_Count	Vote_Average	Revenue	Tagline	Director	Cast	Screenplay	DOP	Editor	Music_Composer	Assistant_Director
 # int	binary	        int 	list_of_ints	list_of_strings	tt0411267	Movie_Name	Language	Synopsis	Popularity	Production_Company_IDs	Production_Company_Names	Production_Country_Names	Release_Date	Running_Time	Vote_Count	Vote_Average	Revenue	Tagline	Director	Cast	Screenplay	DOP	Editor	Music_Composer	Assistant_Director
+import constants as CONSTANTS
 sc = SparkContext('local[*]', 'content-based')
 sc.setLogLevel("ERROR")
-
-DATASET_DIR = "Datasets"
-MOVIE_METADATA_FILE = DATASET_DIR + "/intersection_final_structured_general_metadata.tsv"
-USER_MOVIE_RATINGS_FILE = DATASET_DIR + "/intersection_final_structured_general_metadata.tsv"
-
 
 
 def cosineSimilarityBetweenMovies():
@@ -133,13 +129,14 @@ def findUserRecommendation():
     def parse(x):
         return x.split(",")
 
-    data = sc.textFile(USER_MOVIE_RATINGS_FILE)
+    data = sc.textFile(CONSTANTS.USER_MOVIE_RATINGS_FILE)
     rdd_data = data.map(lambda x: parse(x))
 
     def createUserMap(x):
         return (x[0])
 
     # userMap = rdd_data.map(lambda x: )
+
 
 if __name__ == '__main__':
     cosine_sim = cosineSimilarityBetweenMovies()
