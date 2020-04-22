@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[3]:
+# In[1]:
 
 
 import os
@@ -19,74 +19,92 @@ import numpy as np
 import pandas as pd
 
 
-# In[4]:
+# In[2]:
 
 
 spark = SparkSession.builder.appName('CF_Rec').getOrCreate()
 
 
+# In[12]:
+
+
+ratings = spark.read.option("delimiter", "\t").csv('Data/ratings.txt',inferSchema=True, header=True)
+
+
 # In[5]:
 
 
-ratings = spark.read.option("delimiter", ":").csv('ratings.dat',inferSchema=True, header=True)
+# ratings = spark.read.option("delimiter", ":").csv('ratings.dat',inferSchema=True, header=True)
 
 
-# In[6]:
+# In[13]:
 
 
-ratings=ratings.drop('_c1','_c3','_c5','ratingTimestamp')
+ratings=ratings.drop('ratingTimestamp')
 
 
-# In[7]:
+# In[14]:
+
+
+ratings=ratings.select("userId","movieId","rating")
+
+
+# In[15]:
 
 
 ratings.show(3)
 
 
+# In[7]:
+
+
+movies = spark.read.option("delimiter", "\t").csv('Data/movies.txt',inferSchema=True, header=True)
+
+
 # In[8]:
 
 
-movies = spark.read.option("delimiter", ":").csv('movies.dat',inferSchema=True, header=True)
+# movies = spark.read.option("delimiter", ":").csv('movies.dat',inferSchema=True, header=True)
 
 
 # In[9]:
 
 
-movies=movies.drop('_c1','_c3')
+#movies=movies.drop('_c1','_c3')
 
 
-# In[10]:
+# In[8]:
 
 
 movies.show(3)
 
 
-# In[11]:
+# In[9]:
 
 
 # get spark context
 sc = spark.sparkContext
 
 
-# In[12]:
+# In[16]:
 
 
 # load data
-movie_rating = sc.textFile('ratings.dat')
+movie_rating = sc.textFile('Data/ratings.txt')
 # preprocess data -- only need ["userId", "movieId", "rating"]
 header = movie_rating.take(1)[0]
-rating_data = movie_rating.filter(lambda line: line!=header).map(lambda line: line.split("::")).map(lambda tokens:(int(tokens[0]), int(tokens[1]), float(tokens[2]))).cache()
+rating_data = movie_rating     .filter(lambda line: line!=header).map(lambda line: line.split("\t")).map(lambda tokens: (int(tokens[0]), int(tokens[1]), float(tokens[2])))     .cache()
 # check three rows
 rating_data.take(3)
 
 
-# In[13]:
+# In[17]:
 
 
 ratings.take(3)
 
 
-# In[14]:
+# In[18]:
 
 
 train, validation, test = rating_data.randomSplit([6, 2, 2], seed=99)
@@ -96,12 +114,12 @@ validation.cache()
 test.cache()
 
 
-# In[15]:
+# In[19]:
 
 
 def train_ALS(train_data, validation_data, num_iters, reg_param, ranks):
     """
-    To Find best model's number of latent factors and regularization
+    Grid Search Function to select the best model based on RMSE of hold-out data
     """
     # initial
     min_error = float('inf')
@@ -135,7 +153,7 @@ def train_ALS(train_data, validation_data, num_iters, reg_param, ranks):
     return best_model
 
 
-# In[16]:
+# In[20]:
 
 
 # hyper-param config
@@ -143,14 +161,14 @@ num_iterations = 10
 ranks = [8, 10, 12, 14, 16, 18, 20]
 reg_params = [0.001, 0.01, 0.05, 0.1, 0.2]
 
-# Calclate best model using above iterators.
+# grid search and select best model
 start_time = time.time()
 final_model = train_ALS(train, validation, num_iterations, reg_params, ranks)
 
 print ('Total Runtime: {:.2f} seconds'.format(time.time() - start_time))
 
 
-# In[17]:
+# In[21]:
 
 
 # make prediction using test data
@@ -161,35 +179,35 @@ ratesAndPreds = test.map(lambda r: ((r[0], r[1]), r[2])).join(predictions)
 # get the RMSE
 MSE = ratesAndPreds.map(lambda r: (r[1][0] - r[1][1])**2).mean()
 error = math.sqrt(MSE)
-print('The test_data RMSE of rating predictions is', round(error, 4))
+print('The out-of-sample RMSE of rating predictions is', round(error, 4))
 
 
-# In[18]:
+# In[22]:
 
 
 ratingPredictions=ratesAndPreds.toDF()
 
 
-# In[19]:
+# In[23]:
 
 
 sqlContext.registerDataFrameAsTable(ratingPredictions, "ratings")
 ratingPredictions = sqlContext.sql("SELECT _1 AS UserID_MovieID, _2 as RealRating_PredictedRating from ratings")
 
 
-# In[20]:
+# In[24]:
 
 
 ratingPredictions.head()
 
 
-# In[21]:
+# In[25]:
 
 
 ratingPredictions.show()
 
 
-# In[22]:
+# In[26]:
 
 
 def get_movieId(df_movies, fav_movie_list):
@@ -313,12 +331,20 @@ def make_recommendation(best_model_params, ratings_data, df_movies,
     return df_movies.filter(movies.movieId.isin(topn_ids)).select('title').rdd.map(lambda r: r[0]).collect()
 
 
-# In[25]:
+# In[40]:
+
+
+movies.show()
+movies=movies.drop("Year")
+movies.show()
+
+
+# In[27]:
 
 
 
 # favorite movies
-my_favorite_movies = ['City of Life']
+my_favorite_movies = ['The Wicker Tree']
 
 # get recommendations
 recommends = make_recommendation(
@@ -336,31 +362,43 @@ for i, title in enumerate(recommends):
 
 # #Predictions dataframe from column of lists to mulitple columns
 
-# In[27]:
+# In[28]:
 
 
 ratingPredictions=ratingPredictions.toPandas()
 
 
-# In[28]:
+# In[29]:
 
 
 print(ratingPredictions)
 
 
-# In[31]:
+# In[30]:
 
 
 ratingPredictions[['UserId','MovieId']] = pd.DataFrame(ratingPredictions.UserID_MovieID.values.tolist(), index= ratingPredictions.index)
 
 
-# In[32]:
+# In[31]:
 
 
 ratingPredictions[['realRating','predictedRating']] = pd.DataFrame(ratingPredictions.RealRating_PredictedRating.values.tolist(), index= ratingPredictions.index)
 
 
+# In[32]:
+
+
+print(ratingPredictions)
+
+
 # In[33]:
+
+
+ratingPredictions=ratingPredictions.drop(['UserID_MovieID', 'RealRating_PredictedRating'], axis=1)
+
+
+# In[34]:
 
 
 print(ratingPredictions)
@@ -369,22 +407,10 @@ print(ratingPredictions)
 # In[35]:
 
 
-ratingPredictions=ratingPredictions.drop(['UserID_MovieID', 'RealRating_PredictedRating'], axis=1)
-
-
-# In[36]:
-
-
-print(ratingPredictions)
-
-
-# In[37]:
-
-
 from pyspark.sql.types import StringType, IntegerType, StructField, StructType, FloatType
 
 
-# In[38]:
+# In[36]:
 
 
 dataSchema = StructType([ StructField("UserId", IntegerType(), True)
@@ -395,34 +421,49 @@ dataSchema = StructType([ StructField("UserId", IntegerType(), True)
                        ,StructField("predictedRating", FloatType(), True)])
 
 
-# In[40]:
+# In[37]:
 
 
 ratingPredictions = spark.createDataFrame(ratingPredictions,schema=dataSchema)
 
 
-# In[41]:
+# In[38]:
 
 
 type(ratingPredictions)
 
 
-# In[42]:
+# In[39]:
 
 
-ratingPredictions.show()
+ratingPredictions=ratingPredictions.select("UserId","MovieId","realRating","predictedRating")
 
 
-# In[43]:
+# In[35]:
 
 
 ratingPredictions.orderBy('predictedRating', ascending=False).show()
 
 
-# In[115]:
+# In[ ]:
+
+
+
+
+
+# In[ ]:
+
+
+
+
+
+# In[42]:
 
 
 sc.stop()
 spark.stop()
+
+
+
 
 
