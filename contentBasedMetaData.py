@@ -1,4 +1,4 @@
-from pyspark import SparkContext
+from pyspark import SparkContext, join
 import numpy as np
 # The following features are present in the dataset
 # weights for each feature
@@ -6,13 +6,9 @@ import numpy as np
 
 # TMDB_ID	Adult	Budget	Genre_ID	Genre_Name	            IMDB_ID	    Movie_Name	Language	Synopsis	Popularity	Production_Company_IDs	Production_Company_Names	Production_Country_Names	Release_Date	Running_Time	Vote_Count	Vote_Average	Revenue	Tagline	Director	Cast	Screenplay	DOP	Editor	Music_Composer	Assistant_Director
 # int	binary	        int 	list_of_ints	list_of_strings	tt0411267	Movie_Name	Language	Synopsis	Popularity	Production_Company_IDs	Production_Company_Names	Production_Country_Names	Release_Date	Running_Time	Vote_Count	Vote_Average	Revenue	Tagline	Director	Cast	Screenplay	DOP	Editor	Music_Composer	Assistant_Director
+import constants as CONSTANTS
 sc = SparkContext('local[*]', 'content-based')
 sc.setLogLevel("ERROR")
-
-DATASET_DIR = "Datasets"
-MOVIE_METADATA_FILE = DATASET_DIR + "/intersection_final_structured_general_metadata.tsv"
-USER_MOVIE_RATINGS_FILE = DATASET_DIR + "/intersection_final_structured_general_metadata.tsv"
-
 
 
 def cosineSimilarityBetweenMovies():
@@ -130,17 +126,62 @@ def cosineSimilarityBetweenMovies():
 
 
 def findUserRecommendation():
-    def parse(x):
-        return x.split(",")
+    def parse_MOVIEID_MOVIENAME_FILE(x):
+        line = x.split("\t")
+        movieId = line[0]
+        movieName = line[1]
+        return ( movieId, [movieName])
 
-    data = sc.textFile(USER_MOVIE_RATINGS_FILE)
-    rdd_data = data.map(lambda x: parse(x))
+    def parse_MOVIEID_USERID_RATINGS_FILE(x):
+        line = x.split("\t")
+        movieId = line[0]
+        userId = line[1]
+        rating = line[2]
+        return (movieId, [userId, rating])
 
-    def createUserMap(x):
-        return (x[0])
+    data1 = sc.textFile(CONSTANTS.MOVIEID_MOVIENAME_FILE)
+    rdd_data1 = data1.map(lambda x: parse_MOVIEID_MOVIENAME_FILE(x))
+    print(rdd_data1.take(10))
 
-    # userMap = rdd_data.map(lambda x: )
+    data2 = sc.textFile(CONSTANTS.MOVIEID_USERID_RATINGS_FILE)
+    rdd_data2 = data2.map(lambda x: parse_MOVIEID_USERID_RATINGS_FILE(x))
+    print(rdd_data2.take(10))
+
+    joined = rdd_data2.join(rdd_data1)
+    # movieId, movieName, userId
+    # final = joined.mapValues(lambda lineTuple: lineTuple)
+    print(joined.take(10))
+
+    def parseTmdb(line):
+        # moviename, tmdbid, imdbid
+        movieName = line[6]
+        tmdbid = line[0]
+        imdbid = line[5]
+        return ( movieName, [tmdbid, imdbid])
+
+    data3 = sc.textFile(CONSTANTS.TMDB_MOVIE_METADATA_CLEANED)
+    rdd_data3 = data3.map(lambda x: parseTmdb(x))
+
+    def modifyJoin(x):
+        mid = x[0]
+        l = x[1]
+
+        mname = l[1][0]
+        uid = l[0][0]
+        rating = l[0][1]
+
+        return (mname, [mid, uid, rating])
+
+    modifiedJoin = joined.map(lambda x: modifyJoin(x))
+    print(modifiedJoin.take(10))
+
+    joined2 = rdd_data3.join(modifiedJoin)
+    print(joined2.take(10))
+
+    all = joined2.groupByKey().map(lambda x : (x[0], list(x[1])))
+    print(all.take(10))
+
 
 if __name__ == '__main__':
-    cosine_sim = cosineSimilarityBetweenMovies()
+    # cosine_sim = cosineSimilarityBetweenMovies()
     findUserRecommendation()
