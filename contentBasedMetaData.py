@@ -46,28 +46,27 @@ def cosineSimilarityBetweenMovies():
         #         getListCombineNames(y[20]),
         #         getListCombineNames(y[25]),
         #         y[7], y[12])}
-        return {TMDB_ID: y[0],
-                IMDB_ID: y[5].replace("tt", ""),
-                MOVIE: y[6],
-                GENRE_ID: commaSeperatedToList(y[3]),  # Genre Feature Set
-                ADULT: y[1],  # Is Adult Boolean
-                CAST: getListCombineNames(y[20]),  # Cast Feature Set
+        return {CONSTANTS.TMDB_ID: y[0],
+                CONSTANTS.IMDB_ID: y[5].replace("tt", ""),
+                CONSTANTS.MOVIE: y[6],
+                CONSTANTS.GENRE_ID: commaSeperatedToList(y[3]),  # Genre Feature Set
+                CONSTANTS.ADULT: y[1],  # Is Adult Boolean
+                CONSTANTS.CAST: getListCombineNames(y[20]),  # Cast Feature Set
                 }
 
     data = sc.textFile(CONSTANTS.MOVIE_METADATA_FILE)
-    rdd_data = data\
-        .filter(lambda x: x[0]!=CONSTANTS.METADATA_COLUMNS_MAP.get(TMDB_ID))\
-        .map(lambda x: parse(x))
+    rdd_data = data.map(lambda x: parse(x))
+    rdd_data = rdd_data.filter(lambda x: x.get(CONSTANTS.TMDB_ID) != CONSTANTS.METADATA_COLUMNS_MAP.get(CONSTANTS.TMDB_ID))
     movie_metadata = rdd_data.take(10)
     print(movie_metadata)
 
-    casts = rdd_data.flatMap(lambda features: features.get(CAST)) \
+    casts = rdd_data.flatMap(lambda features: features.get(CONSTANTS.CAST)) \
         .distinct() \
         .collect()
     print("Total Number of Casts : {0}".format(len(casts)))
     print(casts)
 
-    genreList = rdd_data.flatMap(lambda features: features.get(GENRE_ID)) \
+    genreList = rdd_data.flatMap(lambda features: features.get(CONSTANTS.GENRE_ID)) \
         .distinct() \
         .filter(lambda x: x != '') \
         .collect()
@@ -77,9 +76,12 @@ def cosineSimilarityBetweenMovies():
 
     # Currently only on GENRE
     def generateItemProfile(features):
-        movieGenreList = features.get(GENRE_ID)
-        lorg = {IMDB_ID: features.get(IMDB_ID), TMDB_ID: features.get(TMDB_ID), MOVIE: features.get(MOVIE)}
-        lorg["TOKENS"] = [features.get(ADULT)] + features.get(GENRE_ID)
+        movieGenreList = features.get(CONSTANTS.GENRE_ID)
+        lorg = {CONSTANTS.IMDB_ID: features.get(CONSTANTS.IMDB_ID),
+                CONSTANTS.TMDB_ID: features.get(CONSTANTS.TMDB_ID),
+                CONSTANTS.MOVIE: features.get(CONSTANTS.MOVIE)
+                }
+        lorg["TOKENS"] = [features.get(CONSTANTS.ADULT)] + features.get(CONSTANTS.GENRE_ID)
 
         # for genre in genreList:
         #     if genre in movieGenreList:
@@ -94,7 +96,12 @@ def cosineSimilarityBetweenMovies():
 
     itemProfile = rdd_data.map(lambda features: generateItemProfile(features))
     itemFeatures = itemProfile.map(
-        lambda itemProf: {TITLE: itemProf[MOVIE], IMDB_ID: itemProf[IMDB_ID], TOKENS: (' '.join(itemProf[TOKENS])).strip(' ')})
+        lambda itemProf: {
+            TITLE: itemProf[CONSTANTS.MOVIE],
+            CONSTANTS.IMDB_ID: itemProf[CONSTANTS.IMDB_ID],
+            TOKENS: (' '.join(itemProf[TOKENS])).strip(' ')
+        }
+    )
 
     npItemFeatures = np.array(itemFeatures)
 
@@ -105,7 +112,7 @@ def cosineSimilarityBetweenMovies():
     count = CountVectorizer()
     count_matrix = count.fit_transform(itemFeatures.map(lambda x: x[TOKENS]).collect())
 
-    movieTitles = np.array(itemFeatures.map(lambda x: x[IMDB_ID]).collect())
+    movieTitles = np.array(itemFeatures.map(lambda x: x[CONSTANTS.IMDB_ID]).collect())
     print(movieTitles)
 
     # generating the cosine similarity matrix
