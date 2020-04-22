@@ -13,33 +13,62 @@ import re #regular expression
 from textblob import TextBlob
 import string
 import preprocessor as p
+from autocorrect import spell
+import nltk
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
+import numpy as np
 
+def remove_pattern(input_txt, pattern):
+    r = re.findall(pattern, input_txt)
+    for i in r:
+        input_txt = re.sub(i, '', input_txt)
+
+    return input_txt
+
+def emoji(string):
+    emoji_pattern = re.compile("["
+                           u"\U0001F600-\U0001F64F"  # emoticons
+                           u"\U0001F300-\U0001F5FF"  # symbols & pictographs
+                           u"\U0001F680-\U0001F6FF"  # transport & map symbols
+                           u"\U0001F1E0-\U0001F1FF"  # flags (iOS)
+                           u"\U00002702-\U000027B0"
+                           u"\U000024C2-\U0001F251"
+                           "]+", flags=re.UNICODE)
+    return emoji_pattern.sub(r'', string)
 
 def clean(data):
-	stop_words = set(stopwords.words('english'))
-	word_tokens = word_tokenize(data)
+	# stop_words = set(stopwords.words('english'))
 
 	# after tweepy preprocessing the colon left remain after removing mentions
 	# or RT sign in the beginning of the data
+	data = np.vectorize(remove_pattern)(data, "@[\w]*")
+	data = str(data).replace("[^a-zA-Z#]", " ")
+	# data = data.apply(lambda x: ' '.join([w for w in x.split() if len(w)>3]))
 	data = re.sub(r':', '', data)
-	data = re.sub(r'‚Ä¶', '', data)
+	data = re.sub(r"\d", "", data)
 	# replace consecutive non-ASCII characters with a space
 	data = re.sub(r'[^\x00-\x7F]+', ' ', data)
-
 	# remove emojis from data
-	data = emoji_pattern.sub(r'', data)
-
+	data = emoji(data)
+	lst = []
+	for w in data.split():
+		if(w != None):
+			lst.append(spell(w.lower()))
+	data = ' '.join(lst)
+	word_tokens = word_tokenize(data)
+	# exit(1)
 	# filter using NLTK library append it to a string
-	filtered_data = [w for w in word_tokens if not w in stop_words]
+	# filtered_data = [w for w in word_tokens if not w in stop_words]
 	filtered_data = []
 
 	# looping through conditions
 	for w in word_tokens:
 		# check tokens against stop words , emoticons and punctuations
-		if w not in stop_words and w not in emoticons and w not in string.punctuation:
+		# if w not in emoticons and w not in string.punctuation:
 			filtered_data.append(w)
-	#return ' '.join(filtered_data)
-	return filtered_data
+	return ' '.join(filtered_data)
+	# return filtered_data
 
 
 class TweetManager:
@@ -111,11 +140,13 @@ class TweetManager:
 				tweet.geo = geo
 				tweet.urls = ",".join(urls)
 				tweet.author_id = user_id
-				if(tweet.language == "en"):
-					# filtered_tweet=clean(tweet.text)
-					filtered_tweet=p.clean(tweet)
-					results.append(filtered_tweet)
-					resultsAux.append(filtered_tweet)
+				if(tweet.language == "en" and len(tweet.text)>120 and tweet.text.find("...") == -1):
+					filtered_tweet = p.clean(tweet.text)
+					filtered_tweet = clean(filtered_tweet)
+					if(len(filtered_tweet) > 100):
+						tweet.text = filtered_tweet
+						results.append(tweet)
+						resultsAux.append(tweet)
 
 				if receiveBuffer and len(resultsAux) >= bufferLength:
 					receiveBuffer(resultsAux)
