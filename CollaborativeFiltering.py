@@ -25,96 +25,98 @@ import pandas as pd
 spark = SparkSession.builder.appName('CF_Rec').getOrCreate()
 
 
-# In[12]:
+# In[3]:
 
 
 ratings = spark.read.option("delimiter", "\t").csv('Data/ratings.txt',inferSchema=True, header=True)
 
 
-# In[5]:
-
-
-# ratings = spark.read.option("delimiter", ":").csv('ratings.dat',inferSchema=True, header=True)
-
-
-# In[13]:
+# In[4]:
 
 
 ratings=ratings.drop('ratingTimestamp')
 
 
-# In[14]:
+# In[5]:
 
 
 ratings=ratings.select("userId","movieId","rating")
 
 
-# In[15]:
+# In[92]:
 
 
-ratings.show(3)
-
-
-# In[7]:
-
-
-movies = spark.read.option("delimiter", "\t").csv('Data/movies.txt',inferSchema=True, header=True)
+# ratings.show(3)
 
 
 # In[8]:
 
 
-# movies = spark.read.option("delimiter", ":").csv('movies.dat',inferSchema=True, header=True)
+movies = spark.read.option("delimiter", "\t").csv('Data/moviesCF.txt',inferSchema=True, header=True)
 
 
-# In[9]:
+# In[91]:
 
 
-#movies=movies.drop('_c1','_c3')
+# movies.show(3)
 
 
-# In[8]:
-
-
-movies.show(3)
-
-
-# In[9]:
+# In[10]:
 
 
 # get spark context
 sc = spark.sparkContext
 
 
-# In[16]:
+# In[29]:
 
 
-# load data
+# load full ratings data
 movie_rating = sc.textFile('Data/ratings.txt')
-# preprocess data -- only need ["userId", "movieId", "rating"]
+#Create ratingsFullData RDD
 header = movie_rating.take(1)[0]
-rating_data = movie_rating     .filter(lambda line: line!=header).map(lambda line: line.split("\t")).map(lambda tokens: (int(tokens[0]), int(tokens[1]), float(tokens[2])))     .cache()
+rating_data = movie_rating.filter(lambda line: line!=header).map(lambda line: line.split("\t")).map(lambda tokens: (int(tokens[0]), int(tokens[1]), float(tokens[2]))).cache()#sparkcontext gets the file line by line.Two map functions one after the other to split the data into tokens.
 # check three rows
 rating_data.take(3)
 
 
-# In[17]:
+# In[13]:
 
 
-ratings.take(3)
+# load train data
+movie_train_rating = sc.textFile('Data/train_set.txt')
+#Create trainingData RDD
+header = movie_train_rating.take(1)[0]
+rating_traindata = movie_train_rating.filter(lambda line: line!=header).map(lambda line: line.split("\t")).map(lambda tokens: (int(tokens[0]), int(tokens[1]), float(tokens[2]))).cache()#sparkcontext gets the file line by line.Two map functions one after the other to split the data into tokens.
+# check three rows
+rating_traindata.take(3)
 
 
-# In[18]:
+# In[15]:
 
 
-train, validation, test = rating_data.randomSplit([6, 2, 2], seed=99)
-# cache data
+# load test data
+movie_test_rating = sc.textFile('Data/test_set.txt')
+# create testData RDD
+header = movie_test_rating.take(1)[0]
+rating_testdata = movie_test_rating.filter(lambda line: line!=header).map(lambda line: line.split("\t")).map(lambda tokens: (int(tokens[0]), int(tokens[1]), float(tokens[2]))).cache()
+# check three rows
+rating_testdata.take(3)
+
+
+# In[16]:
+
+
+#Data split for traning and validation
+test= rating_testdata
+train, validation = rating_traindata.randomSplit([8, 2], seed=99)
+#cache data
 train.cache()
 validation.cache()
 test.cache()
 
 
-# In[19]:
+# In[17]:
 
 
 def train_ALS(train_data, validation_data, num_iters, reg_param, ranks):
@@ -128,7 +130,7 @@ def train_ALS(train_data, validation_data, num_iters, reg_param, ranks):
     best_model = None
     for rank in ranks:
         for reg in reg_param:
-            # train ALS model
+            # training ALS model with each set of input params as per the iterables - ranks,reg_param
             model = ALS.train(
                 ratings=train_data,    # (userID, productID, rating) tuple
                 iterations=num_iters,
@@ -150,25 +152,25 @@ def train_ALS(train_data, validation_data, num_iters, reg_param, ranks):
                 best_regularization = reg
                 best_model = model
     print('\nThe best model has {} latent factors and regularization = {}'.format(best_rank, best_regularization))
-    return best_model
+    return best_model #the one with rank,reg-param that gives minimum RMSE of all
 
 
-# In[20]:
+# In[18]:
 
 
-# hyper-param config
+#Tuning Hyper-Params:
 num_iterations = 10
 ranks = [8, 10, 12, 14, 16, 18, 20]
 reg_params = [0.001, 0.01, 0.05, 0.1, 0.2]
 
-# grid search and select best model
+# check on ranks and reg-params and select best model
 start_time = time.time()
-final_model = train_ALS(train, validation, num_iterations, reg_params, ranks)
+final_model = train_ALS(train, validation, num_iterations, reg_params, ranks) #returns best model
 
 print ('Total Runtime: {:.2f} seconds'.format(time.time() - start_time))
 
 
-# In[21]:
+# In[19]:
 
 
 # make prediction using test data
@@ -179,55 +181,55 @@ ratesAndPreds = test.map(lambda r: ((r[0], r[1]), r[2])).join(predictions)
 # get the RMSE
 MSE = ratesAndPreds.map(lambda r: (r[1][0] - r[1][1])**2).mean()
 error = math.sqrt(MSE)
-print('The out-of-sample RMSE of rating predictions is', round(error, 4))
+print('RMSE of predicted ratings and real ratings for test_set.txt is', round(error, 4))
 
 
-# In[22]:
+# In[24]:
 
 
 ratingPredictions=ratesAndPreds.toDF()
 
 
-# In[23]:
+# In[25]:
 
 
 sqlContext.registerDataFrameAsTable(ratingPredictions, "ratings")
 ratingPredictions = sqlContext.sql("SELECT _1 AS UserID_MovieID, _2 as RealRating_PredictedRating from ratings")
 
 
-# In[24]:
+# In[26]:
 
 
 ratingPredictions.head()
 
 
-# In[25]:
+# In[27]:
 
 
 ratingPredictions.show()
 
 
-# In[26]:
+# In[31]:
 
 
 def get_movieId(df_movies, fav_movie_list):
     """
-    return all movieId(s) of user's favorite movies
+    Return movieId's of new user's - fav movie list.
     
-    Parameters
-    ----------
+    Arguments:
+    ***********
     df_movies: spark Dataframe, movies data
-    
     fav_movie_list: list, user's list of favorite movies
     
-    Return
-    ------
+    Output:
+    *******
     movieId_list: list of movieId(s)
     """
     movieId_list = []
     for movie in fav_movie_list:
         movieIds = df_movies.filter(movies.title.like('%{}%'.format(movie))).select('movieId').rdd.map(lambda r: r[0]).collect()
         movieId_list.extend(movieIds)
+        #.like() is spark method to retrieve the movies from movies-DF with title having a match with the word from the list.
     return list(set(movieId_list))
 
 
@@ -236,26 +238,24 @@ def add_new_user_to_data(train_data, movieId_list, spark_context):
     add new rows with new user, user's movie and ratings to
     existing train data
 
-    Parameters
-    ----------
-    train_data: spark RDD, ratings data
+    Arguments:
+    **********
+    train_data: type:spark RDD, content:complete ratings data
+    movieId_list: type:list, content:list of movieId(s)
+    spark_context: type:Spark Context object
     
-    movieId_list: list, list of movieId(s)
-
-    spark_context: Spark Context object
-    
-    Return
-    ------
-    new train data with the new user's rows
+    Output:
+    *******
+    new train data with the new user's rows (we add this new user to train data and calculate the user-movie matrix to find the recommendations of the user. We pick the top ten (or as requested) predicted ratings for the user)
     """
     # get new user id
-    new_id = train_data.map(lambda r: r[0]).max() + 1
+    new_id = train_data.map(lambda r: r[0]).max() + 1 #creating a newId to the user by adding 1 to max avaliable in the actual dataset.
     # get max rating
-    max_rating = train_data.map(lambda r: r[2]).max()
+    max_rating = train_data.map(lambda r: r[2]).max() #getting max rating from the actual rating dataset
     # create new user rdd
     user_rows = [(new_id, movieId, max_rating) for movieId in movieId_list]
     new_rdd = spark_context.parallelize(user_rows)
-    # return new train data
+    # join the new user data to overall ratings data and return new train data
     return train_data.union(new_rdd)
 
 
@@ -263,16 +263,14 @@ def get_inference_data(train_data, df_movies, movieId_list):
     """
     return a rdd with the userid and all movies (except ones in movieId_list)
 
-    Parameters
-    ----------
-    train_data: spark RDD, ratings data
+    Arguments:
+    **********
+    train_data: type:spark RDD, content:complete ratings data
+    df_movies: type:spark Dataframe, content:movies dataframe
+    movieId_list: type:list, content:list of movieId(s)
 
-    df_movies: spark Dataframe, movies data
-    
-    movieId_list: list, list of movieId(s)
-
-    Return
-    ------
+    Output:
+    *******
     inference data: Spark RDD
     """
     # get new user id
@@ -285,24 +283,18 @@ def make_recommendation(best_model_params, ratings_data, df_movies,
                         fav_movie_list, n_recommendations, spark_context):
     """
     return top n movie recommendation based on user's input list of favorite movies
+    
+    Arguments:
+    ***********
+    best_model_params: type:dict, content:{'iterations': iter, 'rank': rank, 'lambda_': reg}
+    ratings_data: type:spark RDD, content: full ratings data
+    df_movies: type:spark Dataframe, content: movies data
+    fav_movie_list: type:list, content: user's list of favorite movies
+    n_recommendations: type:int, content: top n recommendations
+    spark_context: type:Spark content: Context object
 
-
-    Parameters
-    ----------
-    best_model_params: dict, {'iterations': iter, 'rank': rank, 'lambda_': reg}
-
-    ratings_data: spark RDD, ratings data
-
-    df_movies: spark Dataframe, movies data
-
-    fav_movie_list: list, user's list of favorite movies
-
-    n_recommendations: int, top n recommendations
-
-    spark_context: Spark Context object
-
-    Return
-    ------
+    Output:
+    *******
     list of top n movie recommendations
     """
     # modify train data by adding new user's rows
@@ -331,20 +323,12 @@ def make_recommendation(best_model_params, ratings_data, df_movies,
     return df_movies.filter(movies.movieId.isin(topn_ids)).select('title').rdd.map(lambda r: r[0]).collect()
 
 
-# In[40]:
-
-
-movies.show()
-movies=movies.drop("Year")
-movies.show()
-
-
-# In[27]:
+# In[90]:
 
 
 
 # favorite movies
-my_favorite_movies = ['The Wicker Tree']
+my_favorite_movies = ['Iron Man','lidice']
 
 # get recommendations
 recommends = make_recommendation(
@@ -355,62 +339,65 @@ recommends = make_recommendation(
     n_recommendations=10, 
     spark_context=sc)
 
-print('Recommendations for {}:'.format(my_favorite_movies[0]))
+print('Recommendations for the movies:')
+for i in my_favorite_movies:
+    print(i, end="|")
+print("\n")
 for i, title in enumerate(recommends):
     print('{0}: {1}'.format(i+1, title))
 
 
 # #Predictions dataframe from column of lists to mulitple columns
 
-# In[28]:
+# In[60]:
 
 
 ratingPredictions=ratingPredictions.toPandas()
 
 
-# In[29]:
+# In[76]:
 
 
-print(ratingPredictions)
+# print(ratingPredictions)
 
 
-# In[30]:
+# In[62]:
 
 
 ratingPredictions[['UserId','MovieId']] = pd.DataFrame(ratingPredictions.UserID_MovieID.values.tolist(), index= ratingPredictions.index)
 
 
-# In[31]:
+# In[63]:
 
 
 ratingPredictions[['realRating','predictedRating']] = pd.DataFrame(ratingPredictions.RealRating_PredictedRating.values.tolist(), index= ratingPredictions.index)
 
 
-# In[32]:
+# In[57]:
 
 
-print(ratingPredictions)
+# print(ratingPredictions)
 
 
-# In[33]:
+# In[64]:
 
 
 ratingPredictions=ratingPredictions.drop(['UserID_MovieID', 'RealRating_PredictedRating'], axis=1)
 
 
-# In[34]:
+# In[66]:
 
 
-print(ratingPredictions)
+# print(ratingPredictions)
 
 
-# In[35]:
+# In[67]:
 
 
 from pyspark.sql.types import StringType, IntegerType, StructField, StructType, FloatType
 
 
-# In[36]:
+# In[68]:
 
 
 dataSchema = StructType([ StructField("UserId", IntegerType(), True)
@@ -421,40 +408,49 @@ dataSchema = StructType([ StructField("UserId", IntegerType(), True)
                        ,StructField("predictedRating", FloatType(), True)])
 
 
-# In[37]:
+# In[69]:
 
 
 ratingPredictions = spark.createDataFrame(ratingPredictions,schema=dataSchema)
 
 
-# In[38]:
+# In[70]:
 
 
 type(ratingPredictions)
 
 
-# In[39]:
+# In[71]:
 
 
 ratingPredictions=ratingPredictions.select("UserId","MovieId","realRating","predictedRating")
 
 
-# In[35]:
+# In[77]:
 
 
-ratingPredictions.orderBy('predictedRating', ascending=False).show()
+# ratingPredictions.orderBy('predictedRating', ascending=False).show()
 
 
-# In[ ]:
+# In[73]:
 
 
+from pyspark.ml.evaluation import RegressionEvaluator
 
 
-
-# In[ ]:
-
+# In[74]:
 
 
+evaluator = RegressionEvaluator(metricName="rmse",
+                                            labelCol="realRating",
+                                            predictionCol="predictedRating")
+rmse = evaluator.evaluate(ratingPredictions)
+
+
+# In[75]:
+
+
+print('validation RMSE on test data {}'.format(rmse))
 
 
 # In[42]:
@@ -463,6 +459,38 @@ ratingPredictions.orderBy('predictedRating', ascending=False).show()
 sc.stop()
 spark.stop()
 
+
+# In[ ]:
+
+
+
+
+
+# In[ ]:
+
+
+
+
+
+# In[ ]:
+
+
+
+
+
+# In[ ]:
+
+
+
+
+
+# In[ ]:
+
+
+
+
+
+# In[ ]:
 
 
 
