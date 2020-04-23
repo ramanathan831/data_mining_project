@@ -1,12 +1,16 @@
 DATASET_DIR = "Datasets"
+DATA = "Data"
+
+
 MOVIE_METADATA_FILE = DATASET_DIR + "/tmdb_metadata_cleaned.tsv"
-USER_MOVIE_TMDBID_RATINGS_FILE = DATASET_DIR + "/ratings_cleaned.txt"
 MOVIEID_MOVIENAME_FILE = DATASET_DIR + "/movies_cleaned.txt"
-MOVIEID_USERID_RATINGS_FILE = DATASET_DIR + "/ratings_cleaned.txt"
+MOVIEID_USERID_RATINGS_FILE = DATA + "/ratings.txt"
 TMDB_MOVIE_METADATA_CLEANED = DATASET_DIR + '/tmdb_metadata_cleaned.tsv'
 
+USER_ID = 'userId'
+
 HEADER = {
-    'userId': 'userId'
+   USER_ID: 'userId'
 }
 
 IMDB_ID = 'imdbId'
