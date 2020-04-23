@@ -17,7 +17,6 @@ RATINGS = 'ratings'
 
 
 def getUserRatingsRdd(filename):
-
     def parse(x):
         x = x.split("\t")
         return int(x[0]), {MOVIEID: x[1], RATINGS: int(x[2])}
@@ -25,39 +24,34 @@ def getUserRatingsRdd(filename):
     data = sc.textFile(filename)
 
     # .filter(lambda x: x[0] != CONSTANTS.HEADER.get(CONSTANTS.USER_ID))\
-    rdd_data = data\
-        .map(lambda x: parse(x))\
-        .groupByKey()\
+    rdd_data = data \
+        .map(lambda x: parse(x)) \
+        .groupByKey() \
         .map(lambda x: (x[0], list(x[1])))
 
     return rdd_data
 
 
-def recommendMovieToUser(rdd, userId, movieId, cosine_sim, indexing):
-    #print("User Movie Ratings : ", rdd.take(10))
-
+def recommendMovieToUser(trainingDataList, userId, movieId, cosine_sim, indexing, userIndexing):
     # Getting the id of the movie for which the user want recommendation
     movieIndex = indexing[movieId]
-    #print("Index in Similarity Matrix", movieIndex)
+    print("Index in Similarity Matrix", movieIndex)
 
     # Getting all the similar cosine score for that movie
     sim_scores = list(cosine_sim[movieIndex])
-    #print("Similarity scores for all other movies with this movie : ", sim_scores)
 
-
-    def parseUserRatings(x):
-        if userId == x[0]:
-            return True
-        else:
-            return False
+    # print("Similarity scores for all other movies with this movie : ", sim_scores)
 
     # Get only the userId row that we need
-    userMovieRatings = rdd.filter(lambda x: parseUserRatings(x)).collect()[0][1]
-    #print("userMovieRatings", userMovieRatings)
+    userIndex = userIndexing[userId]
+    # A list
+    userMovieRatings = trainingDataList[userIndex][1]
+    print("userMovieRatings", userMovieRatings)
 
     sum = 0
     weights = 0
     for userRatedMovie in userMovieRatings:
+        print("UserRatedMovie", userRatedMovie)
         otherMovieId = userRatedMovie.get(MOVIEID)
         otherMovieRating = userRatedMovie.get(RATINGS)
 
@@ -65,59 +59,79 @@ def recommendMovieToUser(rdd, userId, movieId, cosine_sim, indexing):
             otherMovieId = '0' + str(otherMovieId)
 
         otherMovieIndex = indexing[otherMovieId]
-        sum += sim_scores[otherMovieIndex]*otherMovieRating
+        sum += sim_scores[otherMovieIndex] * otherMovieRating
         weights += sim_scores[otherMovieIndex]
 
-    weightedAverage = sum/weights
+    weightedAverage = sum / weights
     # print("Average Rating : ", weightedAverage)
     return weightedAverage
 
 
-def findUserRecommendation(cosine_sim, indexing):
-    # def parse_MOVIEID_MOVIENAME_FILE(x):
-    #     line = x.split("\t")
-    #     movieId = line[0]
-    #     movieName = line[1]
-    #     return (movieId, [movieName])
-    #
-    # def parse_MOVIEID_USERID_RATINGS_FILE(x):
-    #     line = x.split("\t")
-    #     movieId = line[0]
-    #     userId = line[1]
-    #     rating = line[2]
-    #     return (movieId, [userId, rating])
-    trainingRdd = getUserRatingsRdd(CONSTANTS.TRAINSET_FILE)
-    testingRdd = getUserRatingsRdd(CONSTANTS.TESTSET_FILE)
-    testDataList = testingRdd.collect()
-    print("Testing Data length : ", len(testDataList))
-
-    count = 0
-    predictedRatingsList = []
-    actualRatingsList = []
-
-    def test(testingUserData):
+def predictTestUserRatings(cosine_sim, indexing):
+    def testing(testingUserData):
+        print("Testing for userData : ", testingUserData)
         userId = testingUserData[0]
         movieRatingList = testingUserData[1]
+
+        result = []
         for movieRating in movieRatingList:
+            print("Movie Rating : ", movieRating)
             actualRating = movieRating.get(RATINGS)
-        movieId = movieRating.get(MOVIEID)
-        predictedRating = recommendMovieToUser(userId=userId, movieId=movieId, cosine_sim=cosine_sim, indexing=indexing,
-                                               rdd=trainingRdd)
+            movieId = movieRating.get(MOVIEID)
+            predictedRating = recommendMovieToUser(userId=userId, movieId=movieId,
+                                                   cosine_sim=cosine_sim, indexing=indexing,
+                                                   trainingDataList=trainingDataList,
+                                                   userIndexing=userIndexing)
 
-        actualRatingsList.append(actualRating)
-        predictedRatingsList.append(predictedRating)
+            result.append((movieId, actualRating, predictedRating))
+            print("Actual Rating : {0}, Predicted Rating : {1}".format(actualRating, predictedRating))
 
-        print("Actual Rating : {0}, Predicted Rating : {1}".format(actualRating, predictedRating))
+        return (userId, result)
 
-        # print("Count : ", count)
+    trainingRdd = getUserRatingsRdd(CONSTANTS.TRAINSET_FILE)
+    trainingDataList = trainingRdd.collect()
+    print("Training Data List : ", trainingDataList)
 
-    testingRdd.foreach(lambda testingUserData : test(testingUserData))
+    trainingDataUsers = trainDataRdd.map(lambda userMovieRatings: userMovieRatings[0])\
+        .distinct().collect()
 
-    return mae_rmse(actualRatingsList, predictedRatingsList)
+    testingRdd = getUserRatingsRdd(CONSTANTS.TESTSET_FILE)
+    testDataList = testingRdd.collect()
+    print("Testing RDD : ", testingRdd.take(10))
+    print("Testing Data length : ", len(testDataList))
+
+    indexes = []
+    for i in range(0, len(trainingDataUsers)):
+        indexes.append(i)
+
+    userIndexing = pd.Series(indexes, trainingDataUsers)
+    print("UserIds  |  Indexes ")
+    print(userIndexing)
+
+    predictedRdd = testingRdd.map(lambda testingUserData: testing(testingUserData))
+    print(predictedRdd.collect())
+
+    file = open(CONSTANTS.CONTENT_BASED + CONSTANTS.PREDICTED_RATINGS_FILE, 'w')
+
+    def func(x):
+        l = []
+        userId = x[0]
+        movieList = x[1]
+
+        for movie in movieList:
+            l.append(tuple([str(userId), str(movie[0]),  str(movie[1]),  str(movie[2])]))
+
+        return l
+
+    flattened = predictedRdd.flatMap(lambda x: func(x))
+    for line in flattened.collect():
+        file.write('\t'.join(line)+'\n')
+    file.close()
 
 
 if __name__ == '__main__':
     cosine_sim, indexing = findSimilarity(sc)
     trainDataRdd = getUserRatingsRdd(CONSTANTS.TRAINSET_FILE)
-    mae, rmse = findUserRecommendation(cosine_sim, indexing)
+    predictTestUserRatings(cosine_sim, indexing)
+    mae, rmse = mae_rmse(CONSTANTS.CONTENT_BASED + CONSTANTS.PREDICTED_RATINGS_FILE)
     print("Your MAE is : {0} and Your RMSE is : {1}".format(mae, rmse))
