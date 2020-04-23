@@ -1,8 +1,9 @@
 DATASET_DIR = "Datasets"
 DATA = "Data"
+CONTENT_BASED = "ContentBasedFiltering"
 
-PREDICTED_RATINGS_FILE = 'predictedRatingFile.txt'
-TOP_RECOMMENDATION = 'topRecommendation.txt'
+PREDICTED_RATINGS_FILE = '/predictedRatingFile.txt'
+TOP_RECOMMENDATION = '/topRecommendation.txt'
 
 MOVIE_METADATA_FILE = DATASET_DIR + "/tmdb_metadata_cleaned.tsv"
 MOVIEID_MOVIENAME_FILE = DATASET_DIR + "/movies_cleaned.txt"
@@ -37,6 +38,8 @@ METADATA_COLUMNS_MAP = {
         'Assistant_Director': 'Assistant_Director',
         CAST: 'Cast'
 }
+
+
 
 
 
