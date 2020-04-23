@@ -7,6 +7,9 @@ MOVIEID_MOVIENAME_FILE = DATASET_DIR + "/movies_cleaned.txt"
 MOVIEID_USERID_RATINGS_FILE = DATA + "/ratings.txt"
 TMDB_MOVIE_METADATA_CLEANED = DATASET_DIR + '/tmdb_metadata_cleaned.tsv'
 
+TRAINSET_FILE = DATASET_DIR + '/train_set.txt'
+TESTSET_FILE = DATASET_DIR + '/test_set.txt'
+
 USER_ID = 'userId'
 
 HEADER = {
@@ -32,4 +35,5 @@ METADATA_COLUMNS_MAP = {
         'Assistant_Director': 'Assistant_Director',
         CAST: 'Cast'
 }
+
 
