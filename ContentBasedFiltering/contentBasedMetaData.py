@@ -95,22 +95,23 @@ def findUserRecommendation(cosine_sim, indexing):
     predictedRatingsList = []
     actualRatingsList = []
 
-    testingRdd.map(lambda testingUserData: ).
-    for testingUserData in testDataList:
+    def test(testingUserData):
         userId = testingUserData[0]
         movieRatingList = testingUserData[1]
         for movieRating in movieRatingList:
             actualRating = movieRating.get(RATINGS)
-            movieId = movieRating.get(MOVIEID)
-            predictedRating = recommendMovieToUser(userId=userId, movieId=movieId, cosine_sim=cosine_sim, indexing=indexing, rdd=trainingRdd)
+        movieId = movieRating.get(MOVIEID)
+        predictedRating = recommendMovieToUser(userId=userId, movieId=movieId, cosine_sim=cosine_sim, indexing=indexing,
+                                               rdd=trainingRdd)
 
-            actualRatingsList.append(actualRating)
-            predictedRatingsList.append(predictedRating)
+        actualRatingsList.append(actualRating)
+        predictedRatingsList.append(predictedRating)
 
-            print("Actual Rating : {0}, Predicted Rating : {1}".format(actualRating, predictedRating))
+        print("Actual Rating : {0}, Predicted Rating : {1}".format(actualRating, predictedRating))
 
-            count+=1
-            # print("Count : ", count)
+        # print("Count : ", count)
+
+    testingRdd.foreach(lambda testingUserData : test(testingUserData))
 
     return mae_rmse(actualRatingsList, predictedRatingsList)
 
