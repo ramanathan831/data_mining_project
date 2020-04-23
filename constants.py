@@ -1,12 +1,21 @@
 DATASET_DIR = "Datasets"
+DATA = "Data"
+
+PREDICTED_RATINGS_FILE = 'predictedRatingFile.txt'
+TOP_RECOMMENDATION = 'topRecommendation.txt'
+
 MOVIE_METADATA_FILE = DATASET_DIR + "/tmdb_metadata_cleaned.tsv"
-USER_MOVIE_TMDBID_RATINGS_FILE = DATASET_DIR + "/ratings_cleaned.txt"
 MOVIEID_MOVIENAME_FILE = DATASET_DIR + "/movies_cleaned.txt"
-MOVIEID_USERID_RATINGS_FILE = DATASET_DIR + "/ratings_cleaned.txt"
+MOVIEID_USERID_RATINGS_FILE = DATA + "/ratings.txt"
 TMDB_MOVIE_METADATA_CLEANED = DATASET_DIR + '/tmdb_metadata_cleaned.tsv'
 
+TRAINSET_FILE = DATASET_DIR + '/train_set.txt'
+TESTSET_FILE = DATASET_DIR + '/test_set.txt'
+
+USER_ID = 'userId'
+
 HEADER = {
-    'userId': 'userId'
+   USER_ID: 'userId'
 }
 
 IMDB_ID = 'imdbId'
@@ -28,4 +37,7 @@ METADATA_COLUMNS_MAP = {
         'Assistant_Director': 'Assistant_Director',
         CAST: 'Cast'
 }
+
+
+
 
