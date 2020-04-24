@@ -5,8 +5,8 @@ import ntpath
 
 def main():
 	inp_file = open(sys.argv[1],"r")
-	train_file_name = sys.argv[1].replace(ntpath.basename(sys.argv[1]),"train_set.txt")
-	test_file_name =  sys.argv[1].replace(ntpath.basename(sys.argv[1]),"test_set.txt")
+	train_file_name = sys.argv[1].replace(ntpath.basename(sys.argv[1]),"train_set_1.txt")
+	test_file_name =  sys.argv[1].replace(ntpath.basename(sys.argv[1]),"test_set_1.txt")
 	train_file = open(train_file_name,"w")
 	test_file = open(test_file_name,"w")
 
