@@ -17,7 +17,7 @@ def mae_rmse(filename):
     mse = mean_squared_error(actual, predicted)
 
     rmse = math.sqrt(mse)
-    print(find_ndcg(actualRating, predictedRating))
+    print(find_ndcg(actual, predicted))
     return mae, rmse
 
 

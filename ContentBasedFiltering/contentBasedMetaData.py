@@ -63,7 +63,11 @@ def recommendMovieToUser(trainingDataList, userId, movieId, cosine_sim, indexing
         sum += sim_scores[otherMovieIndex] * otherMovieRating
         weights += sim_scores[otherMovieIndex]
 
-    weightedAverage = sum / weights
+    if(weights!=0):
+        weightedAverage = sum / weights
+    else:
+        weightedAverage = 0
+
     # print("Average Rating : ", weightedAverage)
     return weightedAverage
 
@@ -123,7 +127,7 @@ def predictTestUserRatings(cosine_sim, indexing):
         movieList = x[1]
 
         for movie in movieList:
-            line = tuple([str(userId), str(movie[0]), str(movie[2])])
+            line = tuple([str(userId), str(movie[0]), str(movie[1]), str(movie[2])])
             file.write('\t'.join(line) + '\n')
 
     file.close()
