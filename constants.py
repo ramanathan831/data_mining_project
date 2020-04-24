@@ -1,31 +1,37 @@
 DATASET_DIR = "Datasets"
-MOVIE_METADATA_FILE = DATASET_DIR + "/tmdb_metadata_cleaned.tsv"
-USER_MOVIE_TMDBID_RATINGS_FILE = DATASET_DIR + "/ratings_cleaned.txt"
-MOVIEID_MOVIENAME_FILE = DATASET_DIR + "/movies_cleaned.txt"
-MOVIEID_USERID_RATINGS_FILE = DATASET_DIR + "/ratings_cleaned.txt"
+DATA = "Data"
+CONTENT_BASED = "ContentBasedFiltering"
+COLLAB_BASED = "CollaborativeFiltering"
+
+PREDICTED_RATINGS_FILE = '/predictedRatingFile.txt'
+TOP_RECOMMENDATION = '/topRecommendation.txt'
+
+MOVIE_METADATA_FILE = DATA + "/imdb_metadata.tsv"
+MOVIEID_USERID_RATINGS_FILE = DATA + "/ratings.txt"
 TMDB_MOVIE_METADATA_CLEANED = DATASET_DIR + '/tmdb_metadata_cleaned.tsv'
 
+TRAINSET_FILE = DATA + '/train_set.txt'
+TESTSET_FILE = DATA + '/test_set.txt'
+
+USER_ID = 'userId'
+
 HEADER = {
-    'userId': 'userId'
+   USER_ID: 'userId'
 }
 
-IMDB_ID = 'imdbId'
-TMDB_ID = 'tmdbId'
-MOVIE = 'movie'
-GENRE_ID = 'genreIDList'
-CAST = 'castList'
-ADULT = 'isAdult'
+IMDB_ID = 'IMDB_ID'
+MOVIE = 'Movie_Name'
+GENRES = 'Genres'
+DIRECTORS = 'Directors'
+COUNTRY = 'Country'
+LANGUAGE = 'Language'
+CAST = 'Cast'
+KEYWORDS = 'Key_Words'
+PRODUCTION_COMPANIES = 'Production_Companies'
 
-METADATA_COLUMNS_MAP = {
-        TMDB_ID: 'TMDB_ID',
-        MOVIE: 'Movie_Name',
-        ADULT: 'Adult',
-        GENRE_ID: 'Genre_ID',
-        IMDB_ID: 'IMDB_ID',
-        'Language': 'Language',
-        'Production_Country_Names': 'Production_Country_Names',
-        'Director': 'Director',
-        'Assistant_Director': 'Assistant_Director',
-        CAST: 'Cast'
-}
+
+
+
+
+
 
