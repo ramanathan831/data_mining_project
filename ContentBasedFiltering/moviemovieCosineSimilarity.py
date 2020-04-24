@@ -2,6 +2,8 @@ import pandas as pd
 import numpy as np
 import constants as CONSTANTS
 
+from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.feature_extraction.text import CountVectorizer
 
 def combineFullName(name):
     return name.lower().replace(" ", "")
@@ -24,33 +26,26 @@ def isAdult(boolAdult):
 
 def commaSeparatedToList(input):
     # :-1 to trim the last comma
-    list = input[:-1].split(',')
+    list = getListCombineNames(input[1:-2])
     return list
 
 
-# tmdb, imdb, name, genreid, adult, director, cast, asstnt direc, lang, prod_country
 def parse(x):
-    # key is TMDB_ID for now
     y = x.split('\t')
-    # return {'key' : (y[0], y[5], y[6], y[3], y[1],
-    #         getListCombineNames(y[19]),
-    #         getListCombineNames(y[20]),
-    #         getListCombineNames(y[25]),
-    #         y[7], y[12])}
-    return {CONSTANTS.TMDB_ID: y[0],
-            CONSTANTS.IMDB_ID: y[5].replace("tt", ""),
-            CONSTANTS.MOVIE: y[6],
-            CONSTANTS.GENRE_ID: commaSeparatedToList(y[3]),  # Genre Feature Set
-            CONSTANTS.ADULT: y[1],  # Is Adult Boolean
-            CONSTANTS.CAST: getListCombineNames(y[20]),  # Cast Feature Set
-            }
+    return {CONSTANTS.IMDB_ID: y[0],
+            CONSTANTS.MOVIE: y[1],
+            CONSTANTS.GENRES: commaSeparatedToList(y[2]),  # Genre Feature Set
+            CONSTANTS.CAST: getListCombineNames(y[8]),  # Cast Feature Set
+            CONSTANTS.LANGUAGE: getListCombineNames(y[12]),  # Cast Feature Set
+            CONSTANTS.KEYWORDS: getListCombineNames(y[5]),  # Cast Feature Set
+        }
 
 
 def findSimilarity(sc):
     data = sc.textFile(CONSTANTS.MOVIE_METADATA_FILE)
     rdd_data = data.map(lambda x: parse(x))
     rdd_data = rdd_data.filter(
-        lambda x: x.get(CONSTANTS.TMDB_ID) != CONSTANTS.METADATA_COLUMNS_MAP.get(CONSTANTS.TMDB_ID))
+        lambda x: x.get(CONSTANTS.IMDB_ID) != CONSTANTS.IMDB_ID)
     movie_metadata = rdd_data.take(10)
     print("Movie Metadata", movie_metadata)
 
@@ -60,7 +55,7 @@ def findSimilarity(sc):
     print("Total Number of Casts : {0}".format(len(casts)))
     print("Cast List", casts)
 
-    genreList = rdd_data.flatMap(lambda features: features.get(CONSTANTS.GENRE_ID)) \
+    genreList = rdd_data.flatMap(lambda features: features.get(CONSTANTS.GENRES)) \
         .distinct() \
         .filter(lambda x: x != '') \
         .collect()
@@ -72,18 +67,13 @@ def findSimilarity(sc):
     def generateItemProfile(features):
         lorg = {
             CONSTANTS.IMDB_ID: features.get(CONSTANTS.IMDB_ID),
-            CONSTANTS.TMDB_ID: features.get(CONSTANTS.TMDB_ID),
             CONSTANTS.MOVIE: features.get(CONSTANTS.MOVIE),
-            "TOKENS": [features.get(CONSTANTS.ADULT)]
-                      + features.get(CONSTANTS.GENRE_ID)
+            "TOKENS": features.get(CONSTANTS.GENRES)
                       + features.get(CONSTANTS.CAST)
+                      + features.get(CONSTANTS.LANGUAGE)
+                      + features.get(CONSTANTS.KEYWORDS)
         }
 
-        # for genre in genreList:
-        #     if genre in movieGenreList:
-        #         lorg["TOKENS"].append(1)
-        #     else:
-        #         lorg["TOKENS"].append(0)
 
         return lorg
 
@@ -99,29 +89,24 @@ def findSimilarity(sc):
         }
     )
 
-    npItemFeatures = np.array(itemFeatures)
-
-    from sklearn.metrics.pairwise import cosine_similarity
-    from sklearn.feature_extraction.text import CountVectorizer
-
     # instantiating and generating the count matrix
     count = CountVectorizer()
     count_matrix = count.fit_transform(itemFeatures.map(lambda x: x[TOKENS]).collect())
 
-    movieIds_imdb = np.array(itemFeatures.map(lambda x: x[CONSTANTS.IMDB_ID]).collect())
-    print("Movie IMDB_ID: ", movieIds_imdb)
+    # movieIds_imdb = np.array(itemFeatures.map(lambda x: x[CONSTANTS.IMDB_ID]).collect())
+    # print("Movie IMDB_ID: ", movieIds_imdb)
 
     # generating the cosine similarity matrix
     cosine_sim = np.array(cosine_similarity(count_matrix, count_matrix))
 
-    imdbIds = itemFeatures.map(lambda x: x[CONSTANTS.IMDB_ID]).collect()
+    imdbIds = itemFeatures.map(lambda x: x[CONSTANTS.IMDB_ID]).distinct().collect()
     indexes = []
     for i in range(0, len(imdbIds)):
         indexes.append(i)
 
     indexing = pd.Series(indexes, imdbIds)
-    print("MovieIds  |  Indexes ")
-    print(indexing)
+    # print("MovieIds  |  Indexes ")
+    # print(indexing)
     # print(cosine_sim)
     return cosine_sim, indexing
 
