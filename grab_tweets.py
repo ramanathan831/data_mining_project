@@ -1,9 +1,7 @@
 import sys
-import TweetManager
-import Tweet
-import TweetCriteria
-import datetime
 import time
+import datetime
+import TweetManager
 
 def main():
 
@@ -33,12 +31,9 @@ def main():
         print(movie_name, movie_number)
 
         if(movie_number >= restart_number):
-            tweetCriteria = TweetCriteria.TweetCriteria().setQuerySearch(movie_name).setSince(start_date).setUntil(end_date).setMaxTweets(num_tweets)
+            tweetCriteria = TweetManager.TweetCriteria().setQuerySearch(movie_name).setSince(start_date).setUntil(end_date).setMaxTweets(num_tweets)
             for tweet in TweetManager.TweetManager.getTweets(tweetCriteria):
                 tweets_file.write("%s\t%s\n" %(movie_name,tweet.text))
-            # if(movie_number % 20 == 0):
-            #     print('--- Going to sleep... ---\n\n')
-            #     time.sleep(60*5)
 
 if __name__ == '__main__':
     main()

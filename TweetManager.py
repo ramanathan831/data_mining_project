@@ -1,6 +1,6 @@
 import urllib.request, urllib.parse, urllib.error,urllib.request,urllib.error,urllib.parse,json,re,datetime,sys,http.cookiejar
-import Tweet
 import nltk
+import Tweet
 from pyquery import PyQuery
 import string
 from tweepy import Stream
@@ -71,13 +71,34 @@ def clean(data):
 	# return filtered_data
 
 
-class TweetManager:
-
-
+class TweetCriteria:
 
 	def __init__(self):
-		pass
+		self.maxTweets = 0
 
+	def setSince(self, since):
+		self.since = since
+		return self
+
+	def setUntil(self, until):
+		self.until = until
+		return self
+
+	def setQuerySearch(self, querySearch):
+		self.querySearch = querySearch
+		return self
+
+	def setMaxTweets(self, maxTweets):
+		self.maxTweets = maxTweets
+		return self
+
+	def setLang(self, Lang):
+		self.lang = Lang
+		return self
+
+class TweetManager:
+	def __init__(self):
+		pass
 
 	@staticmethod
 	def getTweets(tweetCriteria, receiveBuffer=None, bufferLength=100, proxy=None):
@@ -96,7 +117,6 @@ class TweetManager:
 
 			refreshCursor = json['min_position']
 			scrapedTweets = PyQuery(json['items_html'])
-			#Remove incomplete tweets withheld by Twitter Guidelines
 			scrapedTweets.remove('div.withheld-tweet')
 			tweets = scrapedTweets('div.js-stream-tweet')
 
@@ -206,7 +226,6 @@ class TweetManager:
 			response = opener.open(url)
 			jsonResponse = response.read()
 		except:
-			#print("Twitter weird response. Try to see on browser: ", url)
 			print("Twitter weird response. Try to see on browser: https://twitter.com/search?q=%s&src=typd" % urllib.parse.quote(urlGetData))
 			print("Unexpected error:", sys.exc_info()[0])
 			sys.exit()
