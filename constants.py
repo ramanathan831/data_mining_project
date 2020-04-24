@@ -1,8 +1,9 @@
 DATASET_DIR = "Datasets"
 DATA = "Data"
 CONTENT_BASED = "ContentBasedFiltering"
+COLLAB_BASED = "CollaborativeFiltering"
 
-PREDICTED_RATINGS_FILE = '/predictedRatingFile.txt'
+PREDICTED_RATINGS_FILE = '/predictedRatingFile1.txt'
 TOP_RECOMMENDATION = '/topRecommendation.txt'
 
 MOVIE_METADATA_FILE = DATA + "/imdb_metadata.tsv"
