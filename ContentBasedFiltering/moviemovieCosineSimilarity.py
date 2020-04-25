@@ -25,7 +25,7 @@ def isAdult(boolAdult):
 
 
 def commaSeparatedToList(input):
-    # :-1 to trim the last comma
+    # :-2 to trim the last comma and "
     list = getListCombineNames(input[1:-2])
     return list
 
@@ -35,59 +35,52 @@ def parse(x):
     return {CONSTANTS.IMDB_ID: y[0],
             CONSTANTS.MOVIE: y[1],
             CONSTANTS.GENRES: commaSeparatedToList(y[2]),  # Genre Feature Set
-            CONSTANTS.CAST: getListCombineNames(y[8]),  # Cast Feature Set
-            CONSTANTS.LANGUAGE: getListCombineNames(y[12]),  # Cast Feature Set
-            CONSTANTS.KEYWORDS: getListCombineNames(y[5]),  # Cast Feature Set
+            CONSTANTS.CAST: commaSeparatedToList(y[8]),  # Cast Feature Set
+            CONSTANTS.LANGUAGE: commaSeparatedToList(y[12]),  # Cast Feature Set
+            CONSTANTS.KEYWORDS: commaSeparatedToList(y[5]),  # Cast Feature Set
         }
 
 
-def findSimilarity(sc):
+def findSimilarity(sc, featuresList):
     data = sc.textFile(CONSTANTS.MOVIE_METADATA_FILE)
     rdd_data = data.map(lambda x: parse(x))
     rdd_data = rdd_data.filter(
         lambda x: x.get(CONSTANTS.IMDB_ID) != CONSTANTS.IMDB_ID)
     movie_metadata = rdd_data.take(10)
-    print("Movie Metadata", movie_metadata)
+    # print("Movie Metadata", movie_metadata)
 
     casts = rdd_data.flatMap(lambda features: features.get(CONSTANTS.CAST)) \
         .distinct() \
         .collect()
-    print("Total Number of Casts : {0}".format(len(casts)))
-    print("Cast List", casts)
+    # print("Total Number of Casts : {0}".format(len(casts)))
+    # print("Cast List", casts)
 
     genreList = rdd_data.flatMap(lambda features: features.get(CONSTANTS.GENRES)) \
         .distinct() \
         .filter(lambda x: x != '') \
         .collect()
 
-    print("Total Number of Genre : {0}".format(len(genreList)))
-    print("Genre List", genreList)
+    # print("Total Number of Genre : {0}".format(len(genreList)))
+    # print("Genre List", genreList)
 
     # Currently only on GENRE, IS ADULT, CAST
     def generateItemProfile(features):
+        featureValues = ''
+        for feature in featuresList:
+            featureValues = featureValues + ' ' + ' '.join(features.get(feature))
+        featureValues.strip(' ')
+
         lorg = {
             CONSTANTS.IMDB_ID: features.get(CONSTANTS.IMDB_ID),
-            CONSTANTS.MOVIE: features.get(CONSTANTS.MOVIE),
-            "TOKENS": features.get(CONSTANTS.GENRES)
-                      + features.get(CONSTANTS.CAST)
-                      + features.get(CONSTANTS.LANGUAGE)
-                      + features.get(CONSTANTS.KEYWORDS)
+            # CONSTANTS.MOVIE: features.get(CONSTANTS.MOVIE),
+            "TOKENS": featureValues
         }
-
 
         return lorg
 
-    TITLE = 'TITLE'
     TOKENS = 'TOKENS'
 
-    itemProfile = rdd_data.map(lambda features: generateItemProfile(features))
-    itemFeatures = itemProfile.map(
-        lambda itemProf: {
-            TITLE: itemProf[CONSTANTS.MOVIE],
-            CONSTANTS.IMDB_ID: itemProf[CONSTANTS.IMDB_ID],
-            TOKENS: (' '.join(itemProf[TOKENS])).strip(' ')
-        }
-    )
+    itemFeatures = rdd_data.map(lambda features: generateItemProfile(features))
 
     # instantiating and generating the count matrix
     count = CountVectorizer()

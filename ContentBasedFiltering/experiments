@@ -1,0 +1,20 @@
+ Considering Features : ['Cast', 'Language']
+Your result took : 349.129466s
+Your MAE is : 1.8812287548831093
+Your RMSE is : 2.3797861809466476
+Your NDCG is : 0.971699393846113
+
+ Considering Features : ['Cast', 'Language', 'Genres']
+Your result took : 420.513618s
+Your MAE is : 1.6996329748570635
+Your RMSE is : 2.2006979845706227
+Your NDCG is : 1.0388586595938143
+
+Considering Features : ['Genres']
+Your result took : 556.293890s
+Your MAE is : 1.7778708188447463
+Your RMSE is : 2.2880891834343475
+Your NDCG is : 1.0194808245673188
+
+
+

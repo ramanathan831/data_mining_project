@@ -6,8 +6,6 @@
 
 # spark imports
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import UserDefinedFunction, explode, desc
-from pyspark.sql.types import StringType, ArrayType, IntegerType, StructField, StructType, FloatType
 from pyspark.mllib.recommendation import ALS
 
 # Math and ML imports
@@ -452,7 +450,7 @@ ratingPredictionsUserMoviePred=ratingPredictionsPandas.drop(['realRating'],axis=
 
 
 #exporting predicted ratings on testset to a .txt file for hybrid modelling
-np.savetxt(r'predictedRatingFile.txt', ratingPredictionsUserMoviePred.values, fmt=['%d','%d','%f'] ,delimiter ='\t')
+np.savetxt(r'predictedRatingFile_2.txt', ratingPredictionsUserMoviePred.values, fmt=['%d','%d','%f'] ,delimiter ='\t')
 
 
 # In[107]:
@@ -470,7 +468,7 @@ np.savetxt(r'predictedRatingFile4columns.txt', ratingPredictions.values, fmt=['%
 # In[67]:
 
 
-from pyspark.sql.types import StringType, IntegerType, StructField, StructType, FloatType
+from pyspark.sql.types import IntegerType, StructField, StructType, FloatType
 
 
 # In[108]:

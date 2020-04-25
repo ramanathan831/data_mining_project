@@ -17,8 +17,8 @@ def mae_rmse(filename):
     mse = mean_squared_error(actual, predicted)
 
     rmse = math.sqrt(mse)
-    print(find_ndcg(actual, predicted))
-    return mae, rmse
+    ndcg = find_ndcg(actual, predicted)
+    return mae, rmse, ndcg
 
 
 def find_dcg(element_list):
@@ -34,7 +34,7 @@ def find_dcg(element_list):
     """
     score = 0.0
     for order, rank in enumerate(element_list):
-        score += float(rank)/math.log((order+2))
+        score += float(rank)/math.log((order+2),2)
     return score
 
 

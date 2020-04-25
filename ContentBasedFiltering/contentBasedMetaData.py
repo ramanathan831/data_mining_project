@@ -1,12 +1,7 @@
+from time import time
 from pyspark import SparkContext
-from sklearn.metrics import mean_squared_error, mean_absolute_error
-
 import constants as CONSTANTS
-
 from ContentBasedFiltering.moviemovieCosineSimilarity import *
-
-# The following features are present in the dataset
-# weights for each feature
 from utility import mae_rmse
 
 sc = SparkContext('local[*]', 'content-based')
@@ -54,19 +49,17 @@ def recommendMovieToUser(trainingDataList, userId, movieId, cosine_sim, indexing
         # print("UserRatedMovie", userRatedMovie)
         otherMovieId = userRatedMovie.get(MOVIEID)
         otherMovieRating = userRatedMovie.get(RATINGS)
-
-        # if len(otherMovieId) == 6:
-        #     otherMovieId = '0' + str(otherMovieId)
-
         otherMovieIndex = indexing[str(otherMovieId)]
-        # print("Other is:", otherMovieIndex, type(otherMovieIndex))
-        sum += sim_scores[otherMovieIndex] * otherMovieRating
-        weights += sim_scores[otherMovieIndex]
 
-    if(weights!=0):
+        similarity = sim_scores[otherMovieIndex]
+        sum += similarity * otherMovieRating
+        weights += similarity
+
+    if weights != 0:
         weightedAverage = sum / weights
     else:
-        weightedAverage = 0
+        weightedAverage = 5
+        # print("Weight is 0", sim_scores)
 
     # print("Average Rating : ", weightedAverage)
     return weightedAverage
@@ -106,7 +99,7 @@ def predictTestUserRatings(cosine_sim, indexing):
     testingRdd = getUserRatingsRdd(CONSTANTS.TESTSET_FILE)
     testDataList = testingRdd.collect()
     # print("Testing RDD : ", testingRdd.take(10))
-    print("Testing Data length : ", len(testDataList))
+    # print("Testing Data length : ", len(testDataList))
 
     indexes = []
     for i in range(0, len(trainingDataUsers)):
@@ -117,9 +110,6 @@ def predictTestUserRatings(cosine_sim, indexing):
     # print(userIndexing)
 
     print(testingRdd.count())
-    # first = (49152, [{'ratings': 9, 'movieId': 1856101}, {'ratings': 9, 'movieId': 3460252}, {'ratings': 7, 'movieId': 1609479}, {'ratings': 7, 'movieId': 1064932}, {'ratings': 7, 'movieId': 1859650}, {'ratings': 6, 'movieId': 333766}])
-    # predictedRdd = testingRdd.map(lambda testingUserData: testing(testingUserData))
-    # x = predictedRdd.collect()
 
     for testingUserData in testingRdd.collect():
         x = testing(testingUserData)
@@ -133,9 +123,20 @@ def predictTestUserRatings(cosine_sim, indexing):
     file.close()
 
 
-if __name__ == '__main__':
-    cosine_sim, indexing = findSimilarity(sc)
-    trainDataRdd = getUserRatingsRdd(CONSTANTS.TRAINSET_FILE)
+def train_and_test():
+    featuresList = [CONSTANTS.GENRES]
+    print(" Considering Features : {0}".format(featuresList))
+    cosine_sim, indexing = findSimilarity(sc, featuresList)
     predictTestUserRatings(cosine_sim, indexing)
-    mae, rmse = mae_rmse(CONSTANTS.CONTENT_BASED + CONSTANTS.PREDICTED_RATINGS_FILE)
-    print("Your MAE is : {0} and Your RMSE is : {1}".format(mae, rmse))
+
+
+if __name__ == '__main__':
+    startTime = time()
+    endTime = time()
+
+    train_and_test()
+
+    mae, rmse, ndcg = mae_rmse(CONSTANTS.CONTENT_BASED + CONSTANTS.PREDICTED_RATINGS_FILE)
+
+    print("Your result took : {0:f}s".format(endTime - startTime))
+    print("Your MAE is : {0} \nYour RMSE is : {1} \nYour NDCG is : {2}".format(mae, rmse, ndcg))
